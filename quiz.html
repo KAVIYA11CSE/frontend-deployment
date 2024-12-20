@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Tech Quiz Application</title>
+    <style>
+        /* Reset and General Styles */
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to right, #2c3e50, #4ca1af);
+            color: #fff;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        h1, h2 {
+            text-align: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #3498db;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: none;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .quiz-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .quiz-item {
+            background: rgba(255, 255, 255, 0.2);
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .options {
+            margin-left: 20px;
+        }
+
+        .correct-answer {
+            color: green;
+            font-weight: bold;
+        }
+
+        .user-answer {
+            color: orange;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Authentication Section -->
+        <div id="authSection">
+            <h1>Tech Quiz App</h1>
+            <form id="loginForm">
+                <input type="text" id="username" placeholder="Username" required>
+                <input type="password" id="password" placeholder="Password" required>
+                <button class="btn" type="submit">Login</button>
+            </form>
+        </div>
+
+        <!-- Admin Section -->
+        <div id="adminSection" class="hidden">
+            <h2>Manage Questions</h2>
+            <form id="addQuestionForm">
+                <input type="text" id="newQuestion" placeholder="Enter a question" required>
+                <input type="text" id="newOptions" placeholder="Enter options (comma separated)" required>
+                <input type="text" id="correctAnswer" placeholder="Enter correct answer" required>
+                <button class="btn" type="submit">Add Question</button>
+            </form>
+            <ul class="quiz-list" id="quizList"></ul>
+        </div>
+
+        <!-- Quiz Section -->
+        <div id="quizSection" class="hidden">
+            <h2>Quiz</h2>
+            <form id="quizForm">
+                <ul class="quiz-list" id="quizQuestions"></ul>
+                <button class="btn" type="submit">Submit Quiz</button>
+            </form>
+            <div id="quizResults" class="hidden">
+                <h2>Results</h2>
+                <p id="score"></p>
+                <ul id="answerList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock User Data
+        const users = [
+            { username: "admin", password: "admin123", role: "admin" },
+            { username: "user", password: "user123", role: "user" }
+        ];
+
+        // Load or Initialize Questions
+        let questions = JSON.parse(localStorage.getItem("questions")) || [
+            {
+                question: "What does HTML stand for?",
+                options: ["Hyper Text Markup Language", "Hyperlinks Text Markup Language", "Home Tool Markup Language"],
+                answer: "Hyper Text Markup Language"
+            },
+            {
+                question: "What is the purpose of CSS?",
+                options: ["To structure content", "To style the webpage", "To manage servers"],
+                answer: "To style the webpage"
+            },
+            {
+                question: "Which language is used for web scripting?",
+                options: ["Python", "JavaScript", "Java"],
+                answer: "JavaScript"
+            }
+        ];
+
+        // Save Questions to localStorage
+        function saveQuestions() {
+            localStorage.setItem("questions", JSON.stringify(questions));
+        }
+
+        // DOM Elements
+        const authSection = document.getElementById("authSection");
+        const adminSection = document.getElementById("adminSection");
+        const quizSection = document.getElementById("quizSection");
+        const quizList = document.getElementById("quizList");
+        const quizQuestions = document.getElementById("quizQuestions");
+        const quizResults = document.getElementById("quizResults");
+        const scoreElement = document.getElementById("score");
+        const answerList = document.getElementById("answerList");
+
+        // Authentication Handling
+        document.getElementById("loginForm").addEventListener("submit", (e) => {
+            e.preventDefault();
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            const user = users.find(u => u.username === username && u.password === password);
+
+            if (user) {
+                authSection.classList.add("hidden");
+                if (user.role === "admin") {
+                    adminSection.classList.remove("hidden");
+                    renderAdminQuestions();
+                } else {
+                    quizSection.classList.remove("hidden");
+                    renderQuizQuestions();
+                }
+            } else {
+                alert("Invalid credentials!");
+            }
+        });
+
+        // Admin: Add Question
+        document.getElementById("addQuestionForm").addEventListener("submit", (e) => {
+            e.preventDefault();
+            const questionText = document.getElementById("newQuestion").value;
+            const options = document.getElementById("newOptions").value.split(",");
+            const correctAnswer = document.getElementById("correctAnswer").value;
+
+            questions.push({ question: questionText, options, answer: correctAnswer });
+            saveQuestions();
+            renderAdminQuestions();
+            e.target.reset();
+        });
+
+        // Admin: Render Questions
+        function renderAdminQuestions() {
+            quizList.innerHTML = "";
+            if (questions.length === 0) {
+                quizList.innerHTML = <p>No questions available. Add some questions!</p>;
+            } else {
+                questions.forEach((q, index) => {
+                    const li = document.createElement("li");
+                    li.classList.add("quiz-item");
+                    li.innerHTML = `
+                        <p>${q.question}</p>
+                        <p><strong>Options:</strong> ${q.options.join(", ")}</p>
+                        <p><strong>Answer:</strong> ${q.answer}</p>
+                        <button class="btn btn-danger" onclick="deleteQuestion(${index})">Delete</button>
+                    `;
+                    quizList.appendChild(li);
+                });
+            }
+        }
+
+        // Admin: Delete Question
+        function deleteQuestion(index) {
+            questions.splice(index, 1);
+            saveQuestions();
+            renderAdminQuestions();
+        }
+
+        // User: Render Quiz Questions
+        function renderQuizQuestions() {
+            quizQuestions.innerHTML = "";
+            if (questions.length === 0) {
+                quizQuestions.innerHTML = <p>No questions available at the moment. Please try again later.</p>;
+            } else {
+                questions.forEach((q, index) => {
+                    const li = document.createElement("li");
+                    li.classList.add("quiz-item");
+                    li.innerHTML = `
+                        <p>${q.question}</p>
+                        <div class="options">
+                            ${q.options.map((opt, i) => `
+                                <label>
+                                    <input type="radio" name="question${index}" value="${opt}"> ${opt}
+                                </label>
+                            `).join("")}
+                        </div>
+                    `;
+                    quizQuestions.appendChild(li);
+                });
+            }
+        }
+
+        // User: Submit Quiz
+        document.getElementById("quizForm").addEventListener("submit", (e) => {
+            e.preventDefault();
+            let score = 0;
+            answerList.innerHTML = ""; // Clear previous answers
+
+            questions.forEach((q, index) => {
+                const selected = document.querySelector(input[name="question${index}"]:checked);
+                let userAnswer = selected ? selected.value : "No answer";
+                if (userAnswer === q.answer) {
+                    score++;
+                }
+
+                const li = document.createElement("li");
+                li.classList.add("quiz-item");
+                li.innerHTML = `
+                    <p><strong>Question:</strong> ${q.question}</p>
+                    <p class="correct-answer"><strong>Correct Answer:</strong> ${q.answer}</p>
+                    <p class="user-answer"><strong>Your Answer:</strong> ${userAnswer}</p>
+                `;
+                answerList.appendChild(li);
+            });
+
+            scoreElement.innerText = Your Score: ${score} / ${questions.length};
+            quizResults.classList.remove("hidden");
+        });
+
+        // Initialize Application
+        renderAdminQuestions();
+    </script>
+</body>
+</html>
